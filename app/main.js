@@ -1,4 +1,5 @@
-const { app, BrowserWindow, dialog } = require('electron');
+const { app, BrowserWindow, dialog, Menu } = require('electron');
+const applicationMenu = require('./application-menu');
 const fs = require('fs');
 
 const windows = new Set();
@@ -7,7 +8,11 @@ const openFiles = new Map();
 
 let mainWindow = null;
 
-app.on('ready', () => createWindow());
+
+app.on('ready', () => { 
+	Menu.setApplicationMenu(applicationMenu);
+	createWindow();
+});
 
 
 app.on('window-all-closed', () => {
@@ -81,27 +86,20 @@ const saveHtml = (targetWindow, content) => {
 const saveMarkdown = (targetWindow, file, content) => {
 	
 	if (!file) {
-		const result = dialog.showSaveDialog(targetWindow, {
+		file = dialog.showSaveDialogSync(targetWindow, {
 			title: 'Save Markdown',
 			defaultPath: app.getPath('documents'),
 			filters: [
 				{ name: 'Markdown Files', extensions: [ 'md', 'markdown' ] }
 			]
 		});
+	}
 
-		if (result) {
-			result.then(data => {
-				if (!data.canceled) {
-					fs.writeFileSync(data.filePaths[0], content);
-					openFile(targetWindow, file);
-				}
-			});
-		}
-	}
-	else {
-		fs.writeFileSync(file, content);
-		openFile(targetWindow, file);
-	}
+	if (!file) 
+		return;
+
+	fs.writeFileSync(file, content);
+	openFile(targetWindow, file);	
 };
 
 
