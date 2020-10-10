@@ -1,5 +1,5 @@
 const { app, BrowserWindow, dialog, Menu } = require('electron');
-const applicationMenu = require('./application-menu');
+const createApplicationMenu = require('./application-menu');
 const fs = require('fs');
 
 const windows = new Set();
@@ -10,7 +10,7 @@ let mainWindow = null;
 
 
 app.on('ready', () => { 
-	Menu.setApplicationMenu(applicationMenu);
+	createApplicationMenu();
 	createWindow();
 });
 
@@ -26,8 +26,8 @@ app.on('window-all-closed', () => {
 });
 
 
-app.on('activate', (event, hasVisibleWinodws) => {
-	if (!hasVisibleWinodws) {
+app.on('activate', (event, hasVisibleWindows) => {
+	if (!hasVisibleWindows) {
 		createWindow();
 	}
 });
@@ -105,9 +105,12 @@ const saveMarkdown = (targetWindow, file, content) => {
 
 const openFile = (targetWindow, file) => {
 	const content = fs.readFileSync(file).toString();
+	startWatchingFile(targetWindow, file);
 	app.addRecentDocument(file);
+	// add little file icon in the window's title bar
 	targetWindow.setRepresentedFilename(file);
 	targetWindow.webContents.send('file-opened', file, content);
+	createApplicationMenu();
 };
 
 
@@ -138,6 +141,8 @@ const createWindow = () => {
 
 	newWindow.once('ready-to-show', newWindow.show);
 
+	newWindow.on('focus', createApplicationMenu);
+
 	newWindow.on('close', (event) => {
 
 		if (newWindow.isDocumentEdited()) {
@@ -162,6 +167,7 @@ const createWindow = () => {
 
 	newWindow.on('closed', (event) => {
 		windows.delete(newWindow);
+		createApplicationMenu();
 		stopWatchingFile(newWindow);
 		newWindow = null;
 	});

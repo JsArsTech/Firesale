@@ -1,195 +1,253 @@
-const { app, BrowserWindow, Menu, shell } = require('electron');
+const { app, 
+	BrowserWindow, 
+	dialog,
+	Menu, 
+	shell } = require('electron');
 const mainProcess = require('./main');
 
-const template = [
-	{
-		label: 'File',
-		submenu: [
-			{
-				label: 'New File',
-				accelerator: 'CommandOrControl+N',
-				click() {
-					mainProcess.createWindow();
-				}
-			},
-			{
-				label: 'Open File',
-				accelerator: 'CommandOrControl+O',
-				click(item, focusedWindow) {
 
-					if (focusedWindow) {
-						return mainProcess.getFileFromUser(focusedWindow);
-					}
+// createApplicationMenu
 
-					const newWindow = mainProcess.createWindow();
+// enable or disable menu items according two pieces of infomation 
+// - the number of open windows 
+// - and whether the focused window is representing a file path
 
-					newWindow.on('show', () => {
-						mainProcess.getFileFromUser(focusedWindow);
-					});					
-				}
-			},
-			{
-				label: 'Save File',
-				accelerator: 'CommandOrControl+S',
-				click(item,. focusedWindow) {
+// recreates the application menu when these events ocur
+// - when the application first launches ( app.on('ready') )
+// - when a new window takes focus ( BrowserWindow.on('focus') )
+// - when a window is closed ( BrowserWindow.on('closed') )
+// - when the users opens a file
 
-					if (!focusedWindow) {
-						return dialog.showErrorBox(
-							'Cannot Save or Export',
-							'There is currently no active document to save or export.'
-						);
-					}
+const createApplicationMenu = () => {
 
-					focusedWindow.webContents.send('save-markdown');					
-				}
-			},
-			{
-				label: 'Export HTML',
-				accelerator: 'Shift+CommandOrControl+S',
-				click(item. focusedWindow) { 
+	const hasOneOrMoreWindows = !!BrowserWindow.getAllWindows().length;
+	const focusedWindow = BrowserWindow.getFocusedWindow();	
+	const hasFilePath = !!(focusedWindow && focusedWindow.getRepresentedFilename());
 
-					if (!focusedWindow) {
-						return dialog.showErrorBox(
-							'Cannot Save or Export',
-							'There is currently no active document to save or export.'
-						);
-					}
-										
-					focusedWindow.webContents.send('save-html');
-				}
-			}
-		]
-	},
-	{		
-		label: 'Edit',
-		submenu: [
-			{
-				label: 'Undo',
-				accelerator: 'CommandOrControl+Z',
-				role: 'Undo'
-			},
-			{
-				label: 'Redo',
-				accelerator: 'Shift+CommandOrControl+Z',
-				role: 'redo'
-			},
-			{
-				type: 'separator'
-			},
-			{
-				label: 'Cut',
-				accelerator: 'CommandOrControl+X',
-				role: 'cut'
-			},			
-			{
-				label: 'Copy',
-				accelerator: 'CommandOrControl+C',
-				role: 'copy'
-			},
-			{
-				label: 'Paste',
-				accelerator: 'CommandOrControl+V',
-				role: 'paste'
-			},
-			{
-				label: 'Select All',
-				accelerator: 'CommandOrControl+A',
-				role: 'selectall'
-			}
-		]
-	},
-	{
-		label: 'Window',
-		role: 'window',
-		submenu: [
-			{
-				label: 'Minimize',
-				accelerator: 'CommandOrControl+M',
-				role: 'minimize'
-			},
-			{
-				label: 'Close',
-				accelerator: 'CommandOrControl+W',
-				role: 'close'
-			}
-		]
-	},
-	{
-		label: 'Help',
-		role: 'help',
-		submenu: [
-			{
-				label: 'Visit Website',
-				click() { /* TO DO */}
-			},
-			{
-				label: 'Toggle Developers Tools',
-				click(item. focusedWindow) {
-					if (focusedWindow) 
-
-				}
-			}
-		]
-	}
-];
-
-if (process.platform === 'darwin') {
-
-	const name = 'Fire Sale';
-
-	template.unshift({ 
-		label: name,
-		submenu: [
-			{
-				label: `About ${name}`,
-				role: 'About'
-			},
-			{
-				type: 'separator'
-			}, 
-			{
-				label: 'Services',
-				role: 'services',
-				submenu: []
-			},
-			{
-				type: 'separator'
-			},
-			{
-				label: `Hide ${name}`,
-				accelerator: 'Command+H',
-				role: 'hide'
-			},
-			{
-				label: 'Hide Others',
-				accelerator: 'Command+Alt+H',
-				role: 'hideothers'
-			},
-			{
-				label: 'Show All',
-				role: 'unhide'
-			},
-			{
-				type: 'separator'
-			},
-			{
-				label: `Quit ${name}`,
-				accelerator: 'Command+Q',
-				click() { app.quit(); }
-			}
-		]
-	});
-
-	const windowMenu = template.find(item => item.label === 'Window');
-	windowMenu.role = 'window';
-	windowMenu.submenu.push(
-		{ type: 'separator' },
+	const template = [
 		{
-			label: 'Bring All to Front',
-			role: 'front'
+			label: 'File',
+			submenu: [
+				{
+					label: 'New File',
+					accelerator: 'CommandOrControl+N',
+					click() {
+						mainProcess.createWindow();
+					}
+				},
+				{
+					label: 'Open File',
+					accelerator: 'CommandOrControl+O',
+					click(item, focusedWindow) {
+
+						if (focusedWindow) {
+							return mainProcess.getFileFromUser(focusedWindow);
+						}
+
+						const newWindow = mainProcess.createWindow();
+
+						newWindow.on('show', () => {
+							mainProcess.getFileFromUser(focusedWindow);
+						});					
+					}
+				},
+				{
+					label: 'Save File',					
+					accelerator: 'CommandOrControl+S',
+					enabled: hasOneOrMoreWindows,
+					click(item, focusedWindow) {
+
+						if (!focusedWindow) {
+							return dialog.showErrorBox(
+								'Cannot Save or Export',
+								'There is currently no active document to save or export.'
+							);
+						}
+
+						focusedWindow.webContents.send('save-markdown');					
+					}
+				},
+				{
+					label: 'Export HTML',
+					accelerator: 'Shift+CommandOrControl+S',
+					enabled: hasOneOrMoreWindows,
+					click(item, focusedWindow) { 
+
+						if (!focusedWindow) {
+							return dialog.showErrorBox(
+								'Cannot Save or Export',
+								'There is currently no active document to save or export.'
+							);
+						}
+											
+						focusedWindow.webContents.send('save-html');
+					}
+				},
+				{ type: 'separator' },
+				{
+					label: 'Show File',
+					accelerator: 'Shift+CommandOrControl+S',
+					enabled: hasFilePath,
+					click(item, focusedWindow) {
+						if (!focusedWindow) {
+							return dialog.showErrorBox(
+								'Cannot show file\'s location',
+								'There is currently no active document show'
+							);
+						}
+						focusedWindow.webContents.send('show-file');
+					}
+				}, 
+				{
+					label: 'Open in default editor',
+					accelerator: 'Shift+CommandOrControl+S',
+					enabled: hasFilePath,
+					click(item, focusedWindow) {
+						if(!focusedWindow) {
+							return dialog.showErrorBox(
+								'Cannot open file in default editor',
+								'There is currently no active document to open'
+							);
+						}
+						focusedWindow.webContents.send('open-in-default');
+					}
+				}
+			]
+		},
+		{		
+			label: 'Edit',
+			submenu: [
+				{
+					label: 'Undo',
+					accelerator: 'CommandOrControl+Z',
+					role: 'Undo'
+				},
+				{
+					label: 'Redo',
+					accelerator: 'Shift+CommandOrControl+Z',
+					role: 'redo'
+				},
+				{
+					type: 'separator'
+				},
+				{
+					label: 'Cut',
+					accelerator: 'CommandOrControl+X',
+					role: 'cut'
+				},			
+				{
+					label: 'Copy',
+					accelerator: 'CommandOrControl+C',
+					role: 'copy'
+				},
+				{
+					label: 'Paste',
+					accelerator: 'CommandOrControl+V',
+					role: 'paste'
+				},
+				{
+					label: 'Select All',
+					accelerator: 'CommandOrControl+A',
+					role: 'selectall'
+				}
+			]
+		},
+		{
+			label: 'Window',
+			role: 'window',
+			submenu: [
+				{
+					label: 'Minimize',
+					accelerator: 'CommandOrControl+M',
+					role: 'minimize'
+				},
+				{
+					label: 'Close',
+					accelerator: 'CommandOrControl+W',
+					role: 'close'
+				}
+			]
+		},
+		{
+			label: 'Help',
+			role: 'help',
+			submenu: [
+				{
+					label: 'Visit Website',
+					click() { /* TO DO */}
+				},
+				{
+					label: 'Toggle Developers Tools',
+					click(item, focusedWindow) {
+						if (focusedWindow) 
+							focusedWindow.webContents.toggleDevTools();
+
+					}
+				}
+			]
 		}
-	);
+	];
+
+	if (process.platform === 'darwin') {
+
+		const name = 'Fire Sale';
+
+		template.unshift({ 
+			label: name,
+			submenu: [
+				{
+					label: `About ${name}`,
+					role: 'About'
+				},
+				{
+					type: 'separator'
+				}, 
+				{
+					label: 'Services',
+					role: 'services',
+					submenu: []
+				},
+				{
+					type: 'separator'
+				},
+				{
+					label: `Hide ${name}`,
+					accelerator: 'Command+H',
+					role: 'hide'
+				},
+				{
+					label: 'Hide Others',
+					accelerator: 'Command+Alt+H',
+					role: 'hideothers'
+				},
+				{
+					label: 'Show All',
+					role: 'unhide'
+				},
+				{
+					type: 'separator'
+				},
+				{
+					label: `Quit ${name}`,
+					accelerator: 'Command+Q',
+					click() { app.quit(); }
+				}
+			]
+		});
+
+		const windowMenu = template.find(item => item.label === 'Window');
+		windowMenu.role = 'window';
+		windowMenu.submenu.push(
+			{ type: 'separator' },
+			{
+				label: 'Bring All to Front',
+				role: 'front'
+			}
+		);
+	}
+
+	return Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
 
-module.exports = Menu.buildFromTemplate(template);
+module.exports = createApplicationMenu;

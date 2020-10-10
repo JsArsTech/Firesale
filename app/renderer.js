@@ -1,5 +1,5 @@
 const marked = require('marked');
-const { remote, ipcRenderer } = require('electron');
+const { remote, ipcRenderer, shell } = require('electron');
 const { Menu } = remote;
 const mainProcess = remote.require('./main.js');
 const path = require('path');
@@ -8,14 +8,34 @@ let filePath = null;
 let originalContent = '';
 
 
-const markdownContextMenu = Menu.buildFromTemplate([
-	{ label: 'Open File', click() { mainProcess.getFileFrmUser(); } },
-	{ type: 'separator' },
-	{ label: 'Cut', role: 'cut' },
-	{ label: 'Copy', role: 'copy' },
-	{ label: 'Paste', role: 'paste' },
-	{ label: 'Select All', role: 'selectall' }
-]);
+
+// context menu, appears when a user right-clicks the
+// left editor pane
+// recreate context menu each time is called and 
+// enabled items based on whether  there is a filePath
+const createContextMenu = () => {
+	return Menu.buildFromTemplate([
+		{ label: 'Open File', click() { mainProcess.getFileFrmUser(); } },
+		// call the click functions directly because we're in the
+		// renderer process
+		{ 
+			label: 'Show file in folder',
+			click: showFile,
+			enabled: !!filePath
+		}, 
+		{
+			label: 'Open in default editor',
+			click: openInDefaultApplication,
+			enabled: !!filePath
+		},
+		{ type: 'separator' },
+		{ label: 'Cut', role: 'cut' },
+		{ label: 'Copy', role: 'copy' },
+		{ label: 'Paste', role: 'paste' },
+		{ label: 'Select All', role: 'selectall' }
+	]);
+}
+
 
 
 const currentWindow = remote.getCurrentWindow();
@@ -46,7 +66,7 @@ markdownView.addEventListener('keyup', (event) => {
 
 markdownView.addEventListener('contextmenu', (event) => {
 	event.preventDefault();
-	markdownContextMenu.popup();
+	createContextMenu().popup();
 });
 
 newFileButton.addEventListener('click', () => {
@@ -212,5 +232,41 @@ const renderFile = (file, content) => {
 	markdownView.value = content;
 	renderMarkdownToHtml(content);
 
+	// enable buttons when there is a file stored in the filesystem
+	showFileButton.disabled = false;
+	openInDefaultButton.disabled = false;
+
 	updateUserInterface(false);
 };
+
+// event handler to showFileButton.click
+const showFile = () => {
+
+	// if filePath is not asigned showFileButton is disabled
+	// this is a guard against errors
+	if (!filePath) {
+		return alert('This file has not been saved to the filesystem.');
+	} 
+
+	// open file in systems's native browser
+	shell.showItemInFolder(filePath);
+};
+
+// event handler to openInDefaultButton.click
+const openInDefaultApplication = () => {
+
+	if (!filePath) {
+		return alert('This is file has not been saved to the filesystem.');
+	}
+
+	// open file by the default application
+	shell.openPath(filePath);
+};
+
+showFileButton.addEventListener('click', showFile);
+openInDefaultButton.addEventListener('click', openInDefaultApplication);
+
+// main process (menu) event listeners
+ipcRenderer.on('show-file', showFile);
+ipcRenderer.on('open-in-default', openInDefaultApplication);
+
